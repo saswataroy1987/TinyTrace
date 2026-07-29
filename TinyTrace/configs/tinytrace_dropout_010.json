@@ -1,0 +1,16 @@
+{
+  "image_size": 256,
+  "max_frames": 8,
+  "visual_hidden_dim": 1024,
+  "compressed_visual_tokens": 4,
+  "mobileclip_model_name": "mobileclip_s0",
+  "mobileclip_checkpoint": "checkpoints/mobileclip_s0.pt",
+  "mobileclip_checkpoint_sha256": "809b408eff74f8058843e86a1f92967097d42ba782450e85b8f4867b7f0ca0b7",
+  "freeze_visual_encoder": true,
+  "d_model": 192,
+  "num_layers": 4,
+  "num_heads": 6,
+  "dropout": 0.1,
+  "max_events": 3,
+  "max_generated_tokens": 128
+}

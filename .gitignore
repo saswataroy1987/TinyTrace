@@ -1,0 +1,51 @@
+# Reference repo and large external assets
+TRACE-master/
+dataset/*
+!dataset/mt_fmt-8k.json
+!dataset/mt_fmt-8k.pretty.json
+!dataset/qvhighlights/
+dataset/qvhighlights/*
+!dataset/qvhighlights/mt_fmt-50-valid.json
+qvhighlights/
+final_qvhighlights_tinytrace/
+!final_qvhighlights_tinytrace/annotations/
+final_qvhighlights_tinytrace/annotations/*
+!final_qvhighlights_tinytrace/annotations/*.json
+!final_qvhighlights_tinytrace/annotations/*.jsonc
+!final_qvhighlights_tinytrace/annotations/*.txt
+!final_qvhighlights_tinytrace/annotations/*.md
+final_qvhighlights_tinytrace/videos/
+TinyTrace/data/
+
+# Python caches and environments
+__pycache__/
+*.py[cod]
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+
+# Local agent/editor state
+.agents/
+.codex/
+.idea/
+.vscode/
+
+# TinyTrace generated artifacts
+TinyTrace/.venv/
+TinyTrace/.cache/
+TinyTrace/.pytest_cache/
+TinyTrace/data/
+TinyTrace/**/*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+.claude/settings.local.json
+.tokensave/branch-meta.json
+.tokensave/config.json
+.tokensave/tokensave.db-shm
+.tokensave/tokensave.db-wal
+.tokensave/tokensave.db

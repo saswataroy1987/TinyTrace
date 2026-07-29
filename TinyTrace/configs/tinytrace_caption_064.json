@@ -1,0 +1,4 @@
+{
+  "max_caption_tokens": 64,
+  "max_generated_tokens": 250
+}

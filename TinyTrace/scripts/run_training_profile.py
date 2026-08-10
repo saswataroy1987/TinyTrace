@@ -166,6 +166,13 @@ def main() -> None:
     )
     if profile["resume"]:
         command.extend(["--resume", str(resolve_profile_path(profile_path, profile["resume"]))])
+    if profile.get("init_checkpoint"):
+        command.extend(
+            [
+                "--init-from-checkpoint",
+                str(resolve_profile_path(profile_path, profile["init_checkpoint"])),
+            ]
+        )
 
     print("Running TinyTrace training profile:")
     print(json.dumps(profile, indent=2))

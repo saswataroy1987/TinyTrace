@@ -105,6 +105,15 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--allow-random-frames", action="store_true")
     parser.add_argument("--resume", type=str, default="")
+    parser.add_argument(
+        "--init-from-checkpoint",
+        type=str,
+        default="",
+        help=(
+            "Initialize model weights from an existing TinyTrace checkpoint "
+            "while starting a fresh optimizer/scheduler run."
+        ),
+    )
     parser.add_argument("--save-every", type=int, default=5)
     parser.add_argument("--checkpoint-keep", type=int, default=3)
     parser.add_argument("--prediction-every", type=int, default=1)
@@ -708,6 +717,8 @@ def _run_training() -> None:
         # Synthetic mode is always allowed when no dataset json is provided.
         args.allow_random_frames = True
     requested_output = Path(args.output_dir)
+    if args.resume and args.init_from_checkpoint:
+        raise ValueError("--resume and --init-from-checkpoint are mutually exclusive.")
     if not args.resume and requested_output.is_dir() and any(requested_output.iterdir()):
         raise FileExistsError(
             "A fresh TinyTrace run requires a new or empty output directory; "
@@ -742,6 +753,25 @@ def _run_training() -> None:
         config = TinyTraceConfig.from_dict(resume_payload["config"])
     else:
         config = TinyTraceConfig.from_json(args.config)
+
+    init_payload = None
+    if args.init_from_checkpoint:
+        init_path = Path(args.init_from_checkpoint)
+        if not init_path.is_file():
+            raise FileNotFoundError(
+                f"Initialization checkpoint not found: {args.init_from_checkpoint}"
+            )
+        init_payload = torch.load(init_path, map_location=device, weights_only=False)
+        if not isinstance(init_payload, dict):
+            raise ValueError("Initialization checkpoint must be a TinyTrace checkpoint object.")
+        if "model_state" not in init_payload:
+            if all(isinstance(key, str) for key in init_payload):
+                init_payload = {"model_state": init_payload}
+            else:
+                raise ValueError(
+                    "Initialization checkpoint must contain a 'model_state' entry "
+                    "or be a raw state_dict with string parameter names."
+                )
 
     if args.require_visual_feature_cache:
         if not config.freeze_visual_encoder:
@@ -891,6 +921,9 @@ def _run_training() -> None:
         )
         if stage2_activated:
             model.set_visual_encoder_trainable(True, strategy=active_stage2_strategy)
+    elif init_payload is not None:
+        model.load_state_dict(init_payload["model_state"], strict=True)
+        print(f"initialized_from={args.init_from_checkpoint}")
 
     optimizer = build_named_optimizer(model, training_config)
     scheduler = build_warmup_cosine_scheduler(

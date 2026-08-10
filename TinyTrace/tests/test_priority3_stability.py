@@ -97,11 +97,14 @@ class Priority3StabilityTests(unittest.TestCase):
                 os.environ["CUBLAS_WORKSPACE_CONFIG"] = original
 
     def test_training_profile_defaults_and_unknown_field_rejection(self) -> None:
-        profile = TrainingProfile.from_dict({"epochs": 2})
+        profile = TrainingProfile.from_dict(
+            {"epochs": 2, "init_checkpoint": "bootstrap/best-primary-metric.pt"}
+        )
 
         self.assertEqual(profile.accumulation_steps, 1)
         self.assertTrue(profile.deterministic)
         self.assertEqual(profile.monitor, "val_loss")
+        self.assertEqual(profile.init_checkpoint, "bootstrap/best-primary-metric.pt")
         with self.assertRaisesRegex(ValueError, "Unknown training profile"):
             TrainingProfile.from_dict({"future_option": True})
 
@@ -149,6 +152,19 @@ class Priority3StabilityTests(unittest.TestCase):
         self.assertEqual(profile.stage2_start_epoch, 0)
         self.assertTrue(profile.require_visual_feature_cache)
         self.assertEqual(profile.monitor, "qvh_mean_score_proxy_Good_mAP")
+
+    def test_phase_a_v4_warmstart_profile_is_valid(self) -> None:
+        root = Path(__file__).resolve().parents[1] / "configs"
+        profile = TrainingProfile.from_json(root / "train_qvhighlights_phase_a_v4_warmstart.json")
+        config = TinyTraceConfig.from_json(root / "tinytrace_qvhighlights_phase_a_v4.json")
+
+        self.assertEqual(profile.lr, 0.00005)
+        self.assertEqual(profile.epochs, 12)
+        self.assertEqual(profile.monitor, "qvh_mean_score_proxy_Good_mAP")
+        self.assertEqual(profile.init_checkpoint, "")
+        self.assertTrue(profile.require_visual_feature_cache)
+        self.assertTrue(config.phase_a_dense_saliency)
+        self.assertAlmostEqual(config.saliency_positive_weight, 4.68293643)
 
     def test_dropout_candidate_does_not_change_baseline_default(self) -> None:
         root = Path(__file__).resolve().parents[1] / "configs"

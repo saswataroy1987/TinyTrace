@@ -1,5 +1,12 @@
 # Reference repo and large external assets
 TRACE-master/
+README_HANDOFF.md
+TinyTrace_kaggle_dataset_ready/
+TinyTrace_next_phase_assets/
+/annotations/
+/checkpoints/
+/configs/
+/outputs-qvh-phase-a-v3-full/
 dataset/*
 !dataset/mt_fmt-8k.json
 !dataset/mt_fmt-8k.pretty.json
@@ -36,6 +43,7 @@ ENV/
 # TinyTrace generated artifacts
 TinyTrace/.venv/
 TinyTrace/.cache/
+TinyTrace/.kaggle_phase_a_v4/
 TinyTrace/.pytest_cache/
 TinyTrace/data/
 TinyTrace/**/*.log

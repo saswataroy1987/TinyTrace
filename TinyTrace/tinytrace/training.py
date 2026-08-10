@@ -143,6 +143,7 @@ class TrainingProfile:
     model_config: str = "configs/tinytrace_baseline.json"
     train_dataset_json: str = ""
     val_dataset_json: str = ""
+    init_checkpoint: str = ""
     output_dir: str = "outputs"
     frame_cache_dir: str = ".cache/frames"
     visual_feature_cache_dir: str = ""
@@ -191,6 +192,7 @@ class TrainingProfile:
         for name in (
             "train_dataset_json",
             "val_dataset_json",
+            "init_checkpoint",
             "visual_feature_cache_dir",
             "stage2_unfreeze_strategy",
             "resume",

@@ -16,7 +16,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--raw-json",
         type=Path,
-        default=Path("final_qvhighlights_tinytrace/annotations/qvh_raw_valid.json"),
+        default=None,
     )
     parser.add_argument(
         "--train-json",
@@ -119,15 +119,16 @@ def _print_split(name: str, items: list[dict], show_samples: int) -> None:
 
 def main() -> None:
     args = parse_args()
-    raw_items = _load_json(args.raw_json)
     train_items = _load_json(args.train_json)
     val_items = _load_json(args.val_json)
 
-    raw_coverage = [_raw_bin_coverage(item) for item in raw_items]
-    print("[raw]")
-    print(f"items: {len(raw_items)}")
-    print(f"mean_covered_bins: {statistics.mean(raw_coverage):.2f}")
-    print(f"max_covered_bins: {max(raw_coverage)}")
+    if args.raw_json is not None:
+        raw_items = _load_json(args.raw_json)
+        raw_coverage = [_raw_bin_coverage(item) for item in raw_items]
+        print("[raw]")
+        print(f"items: {len(raw_items)}")
+        print(f"mean_covered_bins: {statistics.mean(raw_coverage):.2f}")
+        print(f"max_covered_bins: {max(raw_coverage)}")
 
     _print_split("train", train_items, args.show_samples)
     _print_split("val", val_items, args.show_samples)

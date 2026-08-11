@@ -369,10 +369,23 @@ class TinyTraceModel(nn.Module):
 
         ranking_terms = []
         for sample_index in range(logits.size(0)):
-            high = logits[sample_index][mask[sample_index] & relevant[sample_index].bool()]
-            low = logits[sample_index][mask[sample_index] & ~relevant[sample_index].bool()]
-            if high.numel() and low.numel():
-                ranking_terms.append(F.softplus(-(high[:, None] - low[None, :])).mean())
+            sample_mask = mask[sample_index]
+            sample_logits = logits[sample_index][sample_mask]
+            sample_targets = targets[sample_index][sample_mask]
+            if sample_logits.numel() < 2:
+                continue
+            target_differences = sample_targets[:, None] - sample_targets[None, :]
+            valid_pairs = target_differences > 0
+            if not valid_pairs.any():
+                continue
+            logit_differences = sample_logits[:, None] - sample_logits[None, :]
+            pair_weights = target_differences[valid_pairs] / self.config.phase_a_max_score
+            ranking_terms.append(
+                (
+                    F.softplus(-logit_differences[valid_pairs])
+                    * pair_weights.clamp_min(1e-6)
+                ).mean()
+            )
         if ranking_terms:
             components["saliency_ranking"] = torch.stack(ranking_terms).mean()
             counts["saliency_ranking"] = torch.tensor(

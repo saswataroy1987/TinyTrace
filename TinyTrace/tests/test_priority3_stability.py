@@ -166,6 +166,23 @@ class Priority3StabilityTests(unittest.TestCase):
         self.assertTrue(config.phase_a_dense_saliency)
         self.assertAlmostEqual(config.saliency_positive_weight, 4.68293643)
 
+    def test_phase_a_v5_warmstart_profile_preserves_cache_contract(self) -> None:
+        root = Path(__file__).resolve().parents[1] / "configs"
+        profile = TrainingProfile.from_json(root / "train_qvhighlights_phase_a_v5_warmstart.json")
+        config = TinyTraceConfig.from_json(root / "tinytrace_qvhighlights_phase_a_v5.json")
+
+        self.assertEqual(profile.lr, 0.00002)
+        self.assertEqual(profile.epochs, 16)
+        self.assertEqual(profile.early_stopping_patience, 6)
+        self.assertEqual(profile.visual_feature_cache_dir, "TinyTrace/.cache/mobileclip_qvh-phase-a-v4-128-fp16")
+        self.assertTrue(profile.require_visual_feature_cache)
+        self.assertEqual(config.max_frames, 128)
+        self.assertEqual(config.image_size, 256)
+        self.assertEqual(config.d_model, 256)
+        self.assertEqual(config.num_layers, 6)
+        self.assertAlmostEqual(config.saliency_relevance_loss_weight, 0.75)
+        self.assertAlmostEqual(config.saliency_ranking_loss_weight, 0.5)
+
     def test_dropout_candidate_does_not_change_baseline_default(self) -> None:
         root = Path(__file__).resolve().parents[1] / "configs"
         baseline = TinyTraceConfig.from_json(root / "tinytrace_baseline.json")

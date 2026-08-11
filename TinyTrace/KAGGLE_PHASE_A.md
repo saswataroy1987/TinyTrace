@@ -13,7 +13,7 @@ This Kaggle flow supports two dataset modes:
    and is rebuilt into dense labels on Kaggle.
 
 In both cases, the launcher audits the dataset, precomputes frozen MobileCLIP
-features, and launches a fresh **v4 warm-start** training run.
+features, and launches a fresh **v5 warm-start** training run.
 
 ## Recommended uploaded Kaggle dataset bundle
 
@@ -62,7 +62,7 @@ tinytrace-kaggle-input/
 
 ## Why the bootstrap checkpoint is recommended
 
-The v4 run is configured as a **fresh warm-start**, not a resume:
+The v5 run is configured as a **fresh warm-start**, not a resume:
 
 - model weights initialize from the best v3 checkpoint
 - optimizer, scheduler, and early-stopping state all start fresh
@@ -90,7 +90,7 @@ The Kaggle launcher:
 3. writes a Kaggle-specific model config and training profile;
 4. audits the training dataset;
 5. precomputes MobileCLIP features;
-6. starts the v4 warm-start training run.
+6. starts the v5 warm-start training run.
 
 ## Kaggle environment setup
 
@@ -108,3 +108,5 @@ setup script with `--dataset-root`.
   `TinyTrace/.kaggle_phase_a_v4/` by default.
 - If you already precomputed the feature cache inside the working session, rerun
   the launcher with `--skip-feature-cache`.
+- To persist the finished best checkpoint, metrics, and generated Kaggle
+  profile into version outputs, pass `--persist-output-root /kaggle/working/...`.

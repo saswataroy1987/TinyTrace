@@ -110,6 +110,34 @@ class PhaseADenseModelTests(unittest.TestCase):
                 task_mode="highlight",
             )
 
+    def test_score_aware_ranking_prefers_correct_logit_ordering(self) -> None:
+        config = self.make_config()
+        model = TinyTraceModel(config, mobileclip_backbone=FakeMobileCLIPBackbone())
+        targets = torch.tensor([[0.0, 1.0, 4.0, 2.0, 0.0]])
+        mask = torch.ones_like(targets, dtype=torch.bool)
+        ordered_logits = torch.tensor([[0.1, 0.4, 1.2, 0.7, -0.2]])
+        reversed_logits = torch.tensor([[1.2, 0.7, 0.1, 0.4, -0.2]])
+        ordered_scores = config.phase_a_max_score * torch.sigmoid(ordered_logits)
+        reversed_scores = config.phase_a_max_score * torch.sigmoid(reversed_logits)
+
+        ordered_components, _ = model._phase_a_loss_components(
+            ordered_logits,
+            ordered_scores,
+            targets,
+            mask,
+        )
+        reversed_components, _ = model._phase_a_loss_components(
+            reversed_logits,
+            reversed_scores,
+            targets,
+            mask,
+        )
+
+        self.assertLess(
+            float(ordered_components["saliency_ranking"]),
+            float(reversed_components["saliency_ranking"]),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

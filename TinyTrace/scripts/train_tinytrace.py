@@ -1349,7 +1349,8 @@ def _run_training() -> None:
                 }
             )
             print(
-                f"early_stopping epoch={epoch} best_loss={best_loss:.6f} "
+                f"early_stopping epoch={epoch} monitor={training_config.monitor} "
+                f"best_primary={early_stopping.best:.6f} best_loss={best_loss:.6f} "
                 f"bad_epochs={early_stopping.bad_epochs}"
             )
             break

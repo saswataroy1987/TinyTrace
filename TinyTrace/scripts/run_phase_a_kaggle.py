@@ -64,6 +64,15 @@ def parse_args() -> argparse.Namespace:
         help="Stop after preparing configs/annotations for training.",
     )
     parser.add_argument(
+        "--persist-output-root",
+        type=Path,
+        default=None,
+        help=(
+            "Optional persistent directory, such as /kaggle/working/..., where final "
+            "configs, metrics, and checkpoints should be copied after training."
+        ),
+    )
+    parser.add_argument(
         "--audit-only",
         action="store_true",
         help="Stop after dataset inspection/audit.",
@@ -206,6 +215,38 @@ def _copy_prepared_annotations(prepared: dict[str, Path], work_root: Path) -> tu
     return output_train_json, output_val_json, exclusions_json, manifest_json
 
 
+def _export_artifacts(
+    *,
+    work_root: Path,
+    generated_model_config: Path,
+    generated_profile: Path,
+    output_dir: Path,
+    persist_output_root: Path | None,
+) -> None:
+    if persist_output_root is None:
+        return
+    persist_output_root.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(generated_model_config, persist_output_root / generated_model_config.name)
+    shutil.copy2(generated_profile, persist_output_root / generated_profile.name)
+
+    exported_annotations = persist_output_root / "annotations"
+    shutil.rmtree(exported_annotations, ignore_errors=True)
+    shutil.copytree(work_root / "annotations", exported_annotations)
+
+    if output_dir.is_dir():
+        exported_outputs = persist_output_root / output_dir.name
+        shutil.rmtree(exported_outputs, ignore_errors=True)
+        shutil.copytree(output_dir, exported_outputs)
+
+    summary = {
+        "work_root": str(work_root),
+        "output_dir": str(output_dir),
+        "generated_model_config": str(generated_model_config),
+        "generated_profile": str(generated_profile),
+    }
+    _write_json(persist_output_root / "export_summary.json", summary)
+
+
 def main() -> None:
     args = parse_args()
     dataset_root = args.dataset_root.resolve()
@@ -274,10 +315,10 @@ def main() -> None:
         )
         _run_audit(output_train_json, output_val_json, raw["raw_json"])
 
-    model_config_path = PROJECT_ROOT / "configs" / "tinytrace_qvhighlights_phase_a_v4.json"
+    model_config_path = PROJECT_ROOT / "configs" / "tinytrace_qvhighlights_phase_a_v5.json"
     model_config = json.loads(model_config_path.read_text(encoding="utf-8"))
     model_config["mobileclip_checkpoint"] = str(mobileclip_checkpoint)
-    generated_model_config = work_root / "configs" / "tinytrace_qvhighlights_phase_a_v4_kaggle.json"
+    generated_model_config = work_root / "configs" / "tinytrace_qvhighlights_phase_a_v5_kaggle.json"
     _write_json(generated_model_config, model_config)
 
     profile = {
@@ -286,24 +327,24 @@ def main() -> None:
         "train_dataset_json": str(output_train_json),
         "val_dataset_json": str(output_val_json),
         "init_checkpoint": str(bootstrap_checkpoint) if bootstrap_checkpoint is not None else "",
-        "output_dir": str(work_root / "outputs-qvh-phase-a-v4-warmstart"),
+        "output_dir": str(work_root / "outputs-qvh-phase-a-v5-warmstart"),
         "frame_cache_dir": str(work_root / "cache" / "frames_qvh-phase-a-v4-128-uint8"),
         "visual_feature_cache_dir": str(work_root / "cache" / "mobileclip_qvh-phase-a-v4-128-fp16"),
         "require_visual_feature_cache": True,
         "device": args.device,
-        "epochs": 12,
+        "epochs": 16,
         "batch_size": 1,
         "dataset_size": 128,
-        "lr": 0.00005,
-        "weight_decay": 0.01,
+        "lr": 0.00002,
+        "weight_decay": 0.02,
         "gradient_clip": 5.0,
-        "warmup_ratio": 0.05,
+        "warmup_ratio": 0.08,
         "min_lr_ratio": 0.1,
         "amp": "auto",
         "accumulation_steps": 8,
-        "early_stopping_patience": 4,
+        "early_stopping_patience": 6,
         "early_stopping_min_delta": 0.0,
-        "early_stopping_min_epochs": 4,
+        "early_stopping_min_epochs": 6,
         "monitor": "qvh_mean_score_proxy_Good_mAP",
         "monitor_mode": "max",
         "save_every": 1,
@@ -323,7 +364,7 @@ def main() -> None:
         "allow_random_frames": False,
         "resume": "",
     }
-    generated_profile = work_root / "configs" / "train_qvhighlights_phase_a_v4_kaggle.json"
+    generated_profile = work_root / "configs" / "train_qvhighlights_phase_a_v5_kaggle.json"
     _write_json(generated_profile, profile)
     print(f"\nGenerated Kaggle profile: {generated_profile}", flush=True)
 
@@ -363,6 +404,13 @@ def main() -> None:
             "--profile",
             str(generated_profile),
         ]
+    )
+    _export_artifacts(
+        work_root=work_root,
+        generated_model_config=generated_model_config,
+        generated_profile=generated_profile,
+        output_dir=output_dir,
+        persist_output_root=args.persist_output_root.resolve() if args.persist_output_root else None,
     )
 
 

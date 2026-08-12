@@ -178,8 +178,8 @@ class Priority3StabilityTests(unittest.TestCase):
         self.assertTrue(profile.require_visual_feature_cache)
         self.assertEqual(config.max_frames, 128)
         self.assertEqual(config.image_size, 256)
-        self.assertEqual(config.d_model, 256)
-        self.assertEqual(config.num_layers, 6)
+        self.assertEqual(config.d_model, 192)
+        self.assertEqual(config.num_layers, 4)
         self.assertAlmostEqual(config.saliency_relevance_loss_weight, 0.75)
         self.assertAlmostEqual(config.saliency_ranking_loss_weight, 0.5)
 

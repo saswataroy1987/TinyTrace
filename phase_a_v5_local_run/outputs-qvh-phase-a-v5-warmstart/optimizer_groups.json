@@ -1,0 +1,72 @@
+[
+  {
+    "name": "compression.decay",
+    "parameter_count": 237568,
+    "trainable_parameter_count": 237568,
+    "lr": 1.0752688172043012e-07,
+    "weight_decay": 0.02
+  },
+  {
+    "name": "compression.no_decay",
+    "parameter_count": 384,
+    "trainable_parameter_count": 384,
+    "lr": 1.0752688172043012e-07,
+    "weight_decay": 0.0
+  },
+  {
+    "name": "embeddings.decay",
+    "parameter_count": 54912,
+    "trainable_parameter_count": 54912,
+    "lr": 1.0752688172043012e-07,
+    "weight_decay": 0.02
+  },
+  {
+    "name": "embeddings.no_decay",
+    "parameter_count": 192,
+    "trainable_parameter_count": 192,
+    "lr": 1.0752688172043012e-07,
+    "weight_decay": 0.0
+  },
+  {
+    "name": "lcem.decay",
+    "parameter_count": 1769472,
+    "trainable_parameter_count": 1769472,
+    "lr": 1.0752688172043012e-07,
+    "weight_decay": 0.02
+  },
+  {
+    "name": "lcem.no_decay",
+    "parameter_count": 10368,
+    "trainable_parameter_count": 10368,
+    "lr": 1.0752688172043012e-07,
+    "weight_decay": 0.0
+  },
+  {
+    "name": "task_heads.decay",
+    "parameter_count": 216768,
+    "trainable_parameter_count": 216768,
+    "lr": 1.0752688172043012e-07,
+    "weight_decay": 0.02
+  },
+  {
+    "name": "task_heads.no_decay",
+    "parameter_count": 1438,
+    "trainable_parameter_count": 1438,
+    "lr": 1.0752688172043012e-07,
+    "weight_decay": 0.0
+  },
+  {
+    "name": "mobileclip.decay",
+    "parameter_count": 11334272,
+    "trainable_parameter_count": 0,
+    "lr": 5.376344086021506e-09,
+    "weight_decay": 0.02
+  },
+  {
+    "name": "mobileclip.no_decay",
+    "parameter_count": 72192,
+    "trainable_parameter_count": 0,
+    "lr": 5.376344086021506e-09,
+    "weight_decay": 0.0
+  }
+]

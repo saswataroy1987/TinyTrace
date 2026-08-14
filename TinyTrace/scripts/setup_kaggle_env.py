@@ -56,7 +56,7 @@ def _find_local_mobileclip_package(dataset_root: Path | None) -> Path | None:
 def main() -> None:
     args = parse_args()
     python = sys.executable
-    _run([python, "-m", "pip", "install", "numpy", "torch", "torchvision"])
+    _run([python, "-m", "pip", "install", "numpy", "torch", "torchvision", "imageio-ffmpeg>=0.6"])
 
     local_mobileclip = _find_local_mobileclip_package(
         args.dataset_root.resolve() if args.dataset_root is not None else None

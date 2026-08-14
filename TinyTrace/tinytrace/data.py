@@ -5,6 +5,7 @@ import json
 import math
 import random
 import re
+import shutil
 import subprocess
 import uuid
 from pathlib import Path
@@ -343,20 +344,50 @@ class JsonTinyTraceDataset(Dataset):
         return valid_items
 
     @staticmethod
+    def _ffmpeg_executable() -> str:
+        """Return a usable FFmpeg binary without requiring system packages."""
+        system_ffmpeg = shutil.which("ffmpeg")
+        if system_ffmpeg is not None:
+            return system_ffmpeg
+        import imageio_ffmpeg
+
+        return imageio_ffmpeg.get_ffmpeg_exe()
+
+    @staticmethod
     def _probe_video_duration(video_path: str) -> float:
-        probe = subprocess.check_output(
-            [
-                "ffprobe",
-                "-v",
-                "error",
-                "-show_entries",
-                "stream=duration:format=duration",
-                "-of",
-                "json",
-                video_path,
-            ],
-            text=True,
-        )
+        try:
+            probe = subprocess.check_output(
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "stream=duration:format=duration",
+                    "-of",
+                    "json",
+                    video_path,
+                ],
+                text=True,
+            )
+        except FileNotFoundError:
+            # Some managed GPU environments omit the system ffmpeg package.  The
+            # imageio-ffmpeg wheel supplies a compatible binary without requiring
+            # root access, so retain strict media validation in those environments.
+            import imageio_ffmpeg
+
+            decoded = subprocess.run(
+                [imageio_ffmpeg.get_ffmpeg_exe(), "-hide_banner", "-i", video_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+            ).stdout
+            match = re.search(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)", decoded)
+            if match is None:
+                return 0.0
+            hours, minutes, seconds = match.groups()
+            return float(hours) * 3600.0 + float(minutes) * 60.0 + float(seconds)
+
         payload = json.loads(probe)
         candidates = []
         for stream in payload.get("streams", []):
@@ -754,7 +785,7 @@ class JsonTinyTraceDataset(Dataset):
         # the endpoint timestamp.
         fps = (num_frames - 1) / safe_duration if num_frames > 1 else 1.0 / safe_duration
         command = [
-            "ffmpeg",
+            self._ffmpeg_executable(),
             "-loglevel",
             "error",
             "-i",
@@ -789,7 +820,7 @@ class JsonTinyTraceDataset(Dataset):
     def _read_single_frame(self, video_path: str, timestamp: float) -> torch.Tensor:
         size = self.config.image_size
         command = [
-            "ffmpeg",
+            self._ffmpeg_executable(),
             "-loglevel",
             "error",
             "-ss",

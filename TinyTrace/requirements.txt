@@ -1,4 +1,5 @@
 torch
 torchvision
 numpy
+imageio-ffmpeg>=0.6
 mobileclip @ git+https://github.com/apple/ml-mobileclip.git@aecfb5453d022e9deff12f81a150ea8f35194baa

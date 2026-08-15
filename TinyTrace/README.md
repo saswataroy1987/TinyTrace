@@ -137,7 +137,8 @@ and the shared event structure remains:
 
 ### Phase B: Video-Only Event Generation
 
-**Status:** planned next phase.
+**Status:** initial implementation is now in the repo; training will begin once
+the ActivityNet dataset is present on the target laptop.
 
 **Main goal**
 
@@ -161,6 +162,30 @@ and the shared event structure remains:
 
 - **not from scratch**
 - warm-start from the **best Phase A checkpoint**
+
+**Current Phase-B code path**
+
+- dataset converter:
+  - `TinyTrace/scripts/prepare_phase_b_activitynet.py`
+- end-to-end runner:
+  - `TinyTrace/scripts/run_phase_b_activitynet.py`
+- model config:
+  - `TinyTrace/configs/tinytrace_activitynet_phase_b_v1.json`
+- training profile:
+  - `TinyTrace/configs/train_activitynet_phase_b_v1_warmstart.json`
+- execution guide:
+  - `TinyTrace/PHASE_B_ACTIVITYNET.md`
+
+**Official warm-start source**
+
+- `final_next_phase_assets/phase_a_bootstrap/phase_a_v3_best_primary_metric.pt`
+
+**Important note for future runs**
+
+- the code should prefer the validated Phase-A-v3 checkpoint above as the
+  default Phase-B initializer
+- `mobileclip_s0.pt` is still required locally, but it is a pretrained external
+  backbone checkpoint and can be downloaded again on the training laptop
 
 **Why this phase exists**
 
@@ -225,6 +250,8 @@ Main code paths:
 - `TinyTrace/tinytrace/` : model, data loader, tokenizers, parser
 - `TinyTrace/scripts/train_tinytrace.py` : training
 - `TinyTrace/scripts/run_phase_a_pipeline.py` : Phase-A-v3 data, overfit, conditioning, smoke, and full-run gates
+- `TinyTrace/scripts/prepare_phase_b_activitynet.py` : convert ActivityNet Captions into TinyTrace Phase-B JSON
+- `TinyTrace/scripts/run_phase_b_activitynet.py` : prepare and launch the Phase-B ActivityNet run
 - `TinyTrace/scripts/precompute_visual_features.py` : frozen MobileCLIP feature-cache builder
 - `TinyTrace/scripts/eval_tinytrace.py` : inspect one sample prediction
 - `TinyTrace/scripts/eval_tinytrace_vhd.py` : proxy or official QVHighlights metrics, depending on supplied labels
@@ -232,6 +259,8 @@ Main code paths:
 - `TinyTrace/configs/tinytrace_baseline.json` : baseline config
 - `TinyTrace/configs/tinytrace_qvhighlights_phase_a_v3.json` : current dense Phase-A model
 - `TinyTrace/configs/train_qvhighlights_phase_a_v3.json` : current full Phase-A training profile
+- `TinyTrace/configs/tinytrace_activitynet_phase_b_v1.json` : current Phase-B model config
+- `TinyTrace/configs/train_activitynet_phase_b_v1_warmstart.json` : current Phase-B warm-start profile
 - `TinyTrace/data/sample_dataset.json` : minimal sample dataset
 - `TinyTrace/trace_lightwieght.md` : project design specification
 

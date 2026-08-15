@@ -27,6 +27,21 @@ saliency scores.
 3. ActivityNet Captions annotations and videos
 4. `mobileclip_s0.pt`
 
+## Recommended Launcher
+
+Use the local launcher first:
+
+- `TinyTrace/scripts/run_phase_b_local.py`
+
+It will:
+
+1. create or reuse a virtual environment
+2. install Python dependencies
+3. install a CUDA-enabled PyTorch build when `--device cuda` is used
+4. download and verify `mobileclip_s0.pt` if it is missing
+5. verify that CUDA is visible
+6. call the Phase-B ActivityNet runner
+
 ## Expected Local Layout
 
 ```text
@@ -55,7 +70,7 @@ activitynet_captions/
 From the repo root:
 
 ```bash
-python3 TinyTrace/scripts/run_phase_b_activitynet.py \
+python3 TinyTrace/scripts/run_phase_b_local.py \
   --dataset-root /path/to/activitynet_captions \
   --work-root ./phase_b_activitynet_v1_run \
   --device cuda
@@ -63,20 +78,24 @@ python3 TinyTrace/scripts/run_phase_b_activitynet.py \
 
 This will:
 
-1. convert raw ActivityNet Captions annotations into TinyTrace Phase-B JSON
-2. point the converted JSON at the local `videos/` directory
-3. build the Phase-B model/training profile
-4. warm-start from:
+1. create or reuse the local venv
+2. install the required runtime dependencies
+3. download MobileCLIP if needed
+4. verify GPU visibility
+5. convert raw ActivityNet Captions annotations into TinyTrace Phase-B JSON
+6. point the converted JSON at the local `videos/` directory
+7. build the Phase-B model/training profile
+8. warm-start from:
    - `final_next_phase_assets/phase_a_bootstrap/phase_a_v3_best_primary_metric.pt`
-5. precompute frozen MobileCLIP visual features
-6. launch Phase-B training
+9. precompute frozen MobileCLIP visual features
+10. launch Phase-B training
 
 ## Prepare Only
 
 If you want only the converted dataset and generated configs first:
 
 ```bash
-python3 TinyTrace/scripts/run_phase_b_activitynet.py \
+python3 TinyTrace/scripts/run_phase_b_local.py \
   --dataset-root /path/to/activitynet_captions \
   --work-root ./phase_b_activitynet_v1_run \
   --prepare-only
@@ -87,11 +106,12 @@ python3 TinyTrace/scripts/run_phase_b_activitynet.py \
 If feature caching already finished in the same work directory:
 
 ```bash
-python3 TinyTrace/scripts/run_phase_b_activitynet.py \
+python3 TinyTrace/scripts/run_phase_b_local.py \
   --dataset-root /path/to/activitynet_captions \
   --work-root ./phase_b_activitynet_v1_run \
   --device cuda \
-  --skip-feature-cache
+  --skip-feature-cache \
+  --skip-install
 ```
 
 ## Output Locations
@@ -111,3 +131,6 @@ The runner writes into:
 - ActivityNet Captions is the main open-domain Phase-B dataset.
 - `YouCook2` can later be added as optional helper data, not as the only Phase-B
   dataset.
+- The lower-level runner `TinyTrace/scripts/run_phase_b_activitynet.py` still
+  exists, but the preferred entrypoint on a fresh laptop is
+  `TinyTrace/scripts/run_phase_b_local.py`.

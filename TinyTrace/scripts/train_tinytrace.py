@@ -43,6 +43,7 @@ from tinytrace.training import (
     capture_rng_state,
     collect_run_metadata,
     current_learning_rates,
+    load_model_state_compat,
     load_optimizer_state_compat,
     optimizer_group_summary,
     prune_periodic_checkpoints,
@@ -922,8 +923,14 @@ def _run_training() -> None:
         if stage2_activated:
             model.set_visual_encoder_trainable(True, strategy=active_stage2_strategy)
     elif init_payload is not None:
-        model.load_state_dict(init_payload["model_state"], strict=True)
-        print(f"initialized_from={args.init_from_checkpoint}")
+        summary = load_model_state_compat(model, init_payload["model_state"])
+        print(
+            "initialized_from="
+            f"{args.init_from_checkpoint} matched={summary['matched_parameter_keys']} "
+            f"missing={len(summary['missing_keys'])} "
+            f"unexpected={len(summary['unexpected_keys'])} "
+            f"shape_mismatches={len(summary['mismatched_shapes'])}"
+        )
 
     optimizer = build_named_optimizer(model, training_config)
     scheduler = build_warmup_cosine_scheduler(

@@ -57,6 +57,52 @@ PARAMETER_GROUP_ORDER = (
 )
 
 
+def load_model_state_compat(
+    model: TinyTraceModel,
+    checkpoint_state: dict[str, torch.Tensor],
+) -> dict[str, Any]:
+    """Load only the compatible subset of a TinyTrace checkpoint.
+
+    This is intended for warm-starting a new phase from an earlier checkpoint
+    whose optional modules or task heads may not exactly match the current
+    configuration.
+    """
+
+    if not isinstance(checkpoint_state, dict) or not all(
+        isinstance(key, str) for key in checkpoint_state
+    ):
+        raise ValueError("checkpoint_state must be a state_dict-like object with string keys.")
+
+    current_state = model.state_dict()
+    compatible_state: dict[str, torch.Tensor] = {}
+    unexpected_keys: list[str] = []
+    mismatched_shapes: dict[str, dict[str, list[int]]] = {}
+
+    for key, value in checkpoint_state.items():
+        if key not in current_state:
+            unexpected_keys.append(key)
+            continue
+        if current_state[key].shape != value.shape:
+            mismatched_shapes[key] = {
+                "checkpoint": list(value.shape),
+                "model": list(current_state[key].shape),
+            }
+            continue
+        compatible_state[key] = value
+
+    if not compatible_state:
+        raise ValueError("No compatible parameters were found in the initialization checkpoint.")
+
+    missing_keys = [key for key in current_state if key not in compatible_state]
+    result = model.load_state_dict(compatible_state, strict=False)
+    return {
+        "matched_parameter_keys": len(compatible_state),
+        "missing_keys": sorted(set(missing_keys) | set(result.missing_keys)),
+        "unexpected_keys": sorted(set(unexpected_keys) | set(result.unexpected_keys)),
+        "mismatched_shapes": mismatched_shapes,
+    }
+
+
 @dataclass
 class TrainingConfig:
     learning_rate: float = 3e-4

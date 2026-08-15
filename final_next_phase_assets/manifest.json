@@ -1,0 +1,24 @@
+{
+  "created_for_phase": "Phase B",
+  "created_on": "2026-08-15",
+  "purpose": "GitHub-safe TinyTrace carry-forward assets from Phase A",
+  "artifacts": [
+    {
+      "path": "phase_a_bootstrap/phase_a_v3_best_primary_metric.pt",
+      "role": "default_phase_b_warm_start_checkpoint",
+      "sha256": "4fa50bf7bfd8bcf7bbf66b0c8a93030ca422f02958ed0a9c53167251b40755fa"
+    },
+    {
+      "path": "configs/tinytrace_qvhighlights_phase_a_v3.json",
+      "role": "phase_a_v3_model_config"
+    },
+    {
+      "path": "configs/train_qvhighlights_phase_a_v3.json",
+      "role": "phase_a_v3_training_profile_reference"
+    }
+  ],
+  "notes": [
+    "This folder is intended to be committed to GitHub.",
+    "Raw datasets, caches, MobileCLIP weights, and large run folders remain local-only."
+  ]
+}

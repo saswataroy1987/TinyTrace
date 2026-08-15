@@ -91,6 +91,133 @@ treated as a valid Phase-A run.
 The MobileCLIP checkpoint is intentionally not committed. The setup helper
 downloads Apple's official `mobileclip_s0.pt` and verifies its SHA-256 digest.
 
+## TinyTrace Phase Plan
+
+TinyTrace is meant to become a **general VTG edge model**, not only a
+QVHighlights trainer. The target is to mimic TRACE's mental model while
+remaining lightweight enough for constrained hardware.
+
+The final TinyTrace interface should support both:
+
+- `video + query -> query-relevant events`
+- `video only -> general event sequence`
+
+and the shared event structure remains:
+
+- `timestamp`
+- `score`
+- `caption`
+
+### Phase A: Query-Conditioned Grounding
+
+**Status:** implemented and already trained in multiple iterations.
+
+**Current dataset**
+
+- `QVHighlights`
+
+**Current input/output**
+
+- input: `video + query`
+- output: one dense 75-bin saliency curve over a 150-second clip
+
+**What Phase A has already done**
+
+- established the cleaned QVHighlights-based training split
+- reformatted the raw QVHighlights data into TinyTrace Phase-A training JSON
+- trained the direct dense 75-bin saliency head
+- validated the run with overfit, conditioning, cache, and smoke gates
+- produced reusable Phase-A checkpoints for warm-starting later phases
+
+**Why this phase exists**
+
+- QVHighlights is naturally strong for temporal grounding and saliency
+- it teaches TinyTrace where important moments are for a given query
+- it is a good first step, but it is not yet the full final TinyTrace behavior
+
+### Phase B: Video-Only Event Generation
+
+**Status:** planned next phase.
+
+**Main goal**
+
+- move TinyTrace beyond query-only supervision
+- train the model to read a video and output structured events directly
+
+**Target input/output**
+
+- input: `video only`
+- output: event sequence with `timestamp + caption`
+- score may be weak/default at first when the dataset does not provide strong
+  saliency labels
+
+**Expected dataset direction**
+
+- `ActivityNet Captions` as the main open-domain Phase-B dataset
+- `YouCook2` as an optional helper or warmup dataset for cleaner instructional
+  event structure
+
+**How training should start**
+
+- **not from scratch**
+- warm-start from the **best Phase A checkpoint**
+
+**Why this phase exists**
+
+- the final TinyTrace model must support video-only inference
+- caption-supporting datasets are needed for that behavior
+- `ActivityNet Captions` better matches a general-domain TinyTrace than a
+  cooking-only dataset
+- TRACE also supports video-only dense captioning tasks, so TinyTrace should too
+
+### Phase C: General VTG Unification
+
+**Status:** planned after a stable Phase B.
+
+**Main goal**
+
+- combine query-conditioned and video-only training into one shared edge model
+
+**Target input/output**
+
+- `video + query -> query-relevant events`
+- `video only -> general events`
+
+**Expected dataset direction**
+
+- `QVHighlights` for query-conditioned timestamp/score grounding
+- `ActivityNet Captions` for main video-only timestamp/caption event generation
+- `YouCook2` as optional helper data
+- `Charades-STA` as an optional later retrieval-focused dataset
+
+**Architecture direction**
+
+- one shared lightweight video backbone
+- one shared temporal/event modeling core
+- optional query-conditioning branch
+- shared event-centric representation across tasks
+
+### Phase D: Final Research Model
+
+**Status:** long-term target.
+
+**Main goal**
+
+- produce a compact TRACE-like TinyTrace model for edge environments
+
+**Final expected behavior**
+
+- input: `video only`
+- output: structured events with `timestamp + score + caption`
+- optional query mode: `video + query`
+
+At a high level:
+
+- Phase A teaches TinyTrace **where** the relevant moments are
+- Phase B teaches TinyTrace **what happened**
+- Phase C teaches TinyTrace to support **both query-conditioned and video-only VTG**
+- Phase D aims for the final research-quality edge model
+
 ## Project Structure
 
 Main code paths:

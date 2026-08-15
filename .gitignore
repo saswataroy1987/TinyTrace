@@ -1,8 +1,12 @@
 # Reference repo and large external assets
-TRACE-master/
 README_HANDOFF.md
 TinyTrace_kaggle_dataset_ready/
 TinyTrace_next_phase_assets/
+phase_a_v5_local_run/
+local_phase_b_assets/
+temp_local_assets/
+temp_assets/
+!final_next_phase_assets/
 /annotations/
 /checkpoints/
 /configs/
@@ -13,6 +17,8 @@ dataset/*
 !dataset/qvhighlights/
 dataset/qvhighlights/*
 !dataset/qvhighlights/mt_fmt-50-valid.json
+dataset/activitynet_captions/
+dataset/youcook2/
 qvhighlights/
 final_qvhighlights_tinytrace/
 !final_qvhighlights_tinytrace/annotations/

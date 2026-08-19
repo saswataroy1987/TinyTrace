@@ -129,6 +129,10 @@ def _install_runtime(args: argparse.Namespace, venv_python: Path, venv_pip: Path
             ]
         )
         _run([str(venv_pip), "install", "-r", str(PROJECT_ROOT / "requirements.txt"), "--no-deps"])
+        # MobileCLIP imports timm at module-load time. Install it with its small
+        # runtime dependency set while keeping MobileCLIP's optional benchmark
+        # stack out of the training environment.
+        _run([str(venv_pip), "install", "timm>=0.9.5", "open-clip-torch>=2.20.0"])
     else:
         _run([str(venv_pip), "install", "-r", str(PROJECT_ROOT / "requirements.txt")])
     _run(

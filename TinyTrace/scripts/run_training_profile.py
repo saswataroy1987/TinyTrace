@@ -39,6 +39,12 @@ def resolve_profile_path(profile_path: Path, value: str) -> Path:
     candidate = Path(value)
     if candidate.is_absolute():
         return candidate
+    # Shared profiles name project files such as ``scripts/train_tinytrace.py``.
+    # Generated Phase-B profiles live outside PROJECT_ROOT, so resolve those
+    # paths against the project before considering the generated config folder.
+    project_candidate = PROJECT_ROOT / candidate
+    if project_candidate.exists():
+        return project_candidate
     workspace_root = profile_path.parents[2]
     workspace_candidate = workspace_root / candidate
     if workspace_candidate.exists() or (candidate.parts and candidate.parts[0] in {"TinyTrace", "final_qvhighlights_tinytrace", "dataset"}):
@@ -94,6 +100,8 @@ def main() -> None:
         str(profile["batch_size"]),
         "--dataset-size",
         str(profile["dataset_size"]),
+        "--val-dataset-size",
+        str(profile.get("val_dataset_size", 0)),
         "--lr",
         str(profile["lr"]),
         "--weight-decay",

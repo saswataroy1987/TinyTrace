@@ -1,6 +1,6 @@
 {
   "image_size": 256,
-  "max_frames": 16,
+  "max_frames": 32,
   "visual_hidden_dim": 1024,
   "compressed_visual_tokens": 4,
   "mobileclip_model_name": "mobileclip_s0",
@@ -19,8 +19,8 @@
   "boundary_loss_weight": 1.0,
   "phase_a_dense_saliency": false,
   "max_text_len": 48,
-  "max_caption_tokens": 48,
+  "max_caption_tokens": 128,
   "min_caption_tokens": 3,
   "max_events": 6,
-  "max_generated_tokens": 403
+  "max_generated_tokens": 896
 }

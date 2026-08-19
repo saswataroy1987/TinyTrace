@@ -19,6 +19,7 @@ dataset/qvhighlights/*
 !dataset/qvhighlights/mt_fmt-50-valid.json
 dataset/activitynet_captions/
 dataset/youcook2/
+Activity_net_dataset/
 qvhighlights/
 final_qvhighlights_tinytrace/
 !final_qvhighlights_tinytrace/annotations/
@@ -39,6 +40,7 @@ __pycache__/
 venv/
 env/
 ENV/
+.venv-phase-b/
 
 # Local agent/editor state
 .agents/
@@ -53,6 +55,28 @@ TinyTrace/.kaggle_phase_a_v4/
 TinyTrace/.pytest_cache/
 TinyTrace/data/
 TinyTrace/**/*.log
+
+# Local training runs, caches, checkpoints, and deployment exports
+# These are reproducible from the tracked code/configuration and may be large.
+phase_b_*_run/
+phase_b_*_run-*/
+**/cache/
+**/.cache/
+**/checkpoints/
+**/predictions/
+**/exported_artifacts/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.engine
+*.tflite
+*.jsonl
+wandb/
+runs/
+tensorboard/
+lightning_logs/
 
 # OS files
 .DS_Store

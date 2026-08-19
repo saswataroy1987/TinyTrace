@@ -10,8 +10,8 @@ from typing import Any, ClassVar
 @dataclass
 class TinyTraceConfig:
     MAX_SUPPORTED_FRAMES: ClassVar[int] = 128
-    MAX_SUPPORTED_CAPTION_TOKENS: ClassVar[int] = 64
-    MAX_SUPPORTED_GENERATED_TOKENS: ClassVar[int] = 512
+    MAX_SUPPORTED_CAPTION_TOKENS: ClassVar[int] = 128
+    MAX_SUPPORTED_GENERATED_TOKENS: ClassVar[int] = 1024
     image_size: int = 256
     max_frames: int = 8
     visual_hidden_dim: int = 1024

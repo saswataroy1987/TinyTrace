@@ -13,7 +13,7 @@ from contextlib import nullcontext
 from pathlib import Path
 
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, Subset
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -93,6 +93,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--monitor", type=str, default="val_loss")
     parser.add_argument("--monitor-mode", choices=("min", "max"), default="min")
     parser.add_argument("--dataset-size", type=int, default=128)
+    parser.add_argument(
+        "--val-dataset-size",
+        type=int,
+        default=0,
+        help="Use a fixed seeded validation subset; 0 uses the full validation dataset.",
+    )
     parser.add_argument("--dataset-json", type=str, default="")
     parser.add_argument("--val-dataset-json", type=str, default="")
     parser.add_argument("--config", type=str, default=str(PROJECT_ROOT / "configs/tinytrace_baseline.json"))
@@ -158,8 +164,11 @@ def build_dataset(
             config=config,
             frame_cache_dir=frame_cache_dir,
             allow_random_frames=allow_random_frames,
-            validate_videos_on_init=True,
-            strict_media_validation=True,
+            # Phase-B cache-verified datasets have already passed annotation,
+            # media, decode, and feature checks. Avoid another sequential
+            # FFprobe pass before every resumed training run.
+            validate_videos_on_init=not require_visual_feature_cache,
+            strict_media_validation=not require_visual_feature_cache,
             visual_feature_cache_dir=visual_feature_cache_dir or None,
             require_visual_feature_cache=require_visual_feature_cache,
         )
@@ -741,6 +750,7 @@ def _run_training() -> None:
             "dataset_json",
             "val_dataset_json",
             "dataset_size",
+            "val_dataset_size",
             "batch_size",
             "max_steps_per_epoch",
             "num_workers",
@@ -828,6 +838,14 @@ def _run_training() -> None:
         if args.val_dataset_json
         else None
     )
+    if args.val_dataset_size < 0:
+        raise ValueError("--val-dataset-size must be non-negative.")
+    if val_dataset is not None and 0 < args.val_dataset_size < len(val_dataset):
+        selection = torch.randperm(
+            len(val_dataset), generator=torch.Generator().manual_seed(args.seed)
+        )[: args.val_dataset_size].tolist()
+        val_dataset = Subset(val_dataset, sorted(selection))
+        print(f"validation_subset={len(val_dataset)} seed={args.seed}")
     pin_memory = device.type == "cuda"
     train_loader = build_loader(
         train_dataset,

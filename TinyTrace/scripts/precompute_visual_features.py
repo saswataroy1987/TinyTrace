@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import json
 import sys
 import time
 from contextlib import nullcontext
@@ -59,6 +60,17 @@ def parse_args() -> argparse.Namespace:
         default=1,
         help="Print progress every N visited samples.",
     )
+    parser.add_argument(
+        "--verified-dataset-json",
+        action="append",
+        default=[],
+        help="Output JSON for samples whose visual feature cache was successfully verified. Repeat per dataset.",
+    )
+    parser.add_argument(
+        "--failure-manifest-json",
+        default="",
+        help="Optional JSON manifest recording samples skipped during decoding or feature extraction.",
+    )
     return parser.parse_args()
 
 
@@ -97,7 +109,7 @@ def _build_dataset(
         config=config,
         frame_cache_dir=frame_cache_dir or None,
         allow_random_frames=False,
-        validate_videos_on_init=True,
+        validate_videos_on_init=False,
         strict_media_validation=True,
         visual_feature_cache_dir=visual_feature_cache_dir,
         require_visual_feature_cache=False,
@@ -117,9 +129,17 @@ def _build_dataset(
 
 
 @torch.inference_mode()
+def _write_json(path: str, payload: object) -> None:
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
 def precompute(args: argparse.Namespace) -> dict[str, int | float]:
     if args.progress_every < 1:
         raise ValueError("progress_every must be a positive integer.")
+    if args.verified_dataset_json and len(args.verified_dataset_json) != len(args.dataset_json):
+        raise ValueError("--verified-dataset-json must be provided once for every --dataset-json.")
     device = _resolve_device(args.device)
     config = TinyTraceConfig.from_json(args.config)
     if not config.freeze_visual_encoder:
@@ -150,6 +170,9 @@ def precompute(args: argparse.Namespace) -> dict[str, int | float]:
     visited = 0
     written = 0
     skipped = 0
+    failed = 0
+    failures: list[dict[str, object]] = []
+    verified_items: list[list[dict]] = [[] for _ in datasets]
     started = time.perf_counter()
     for dataset_index, dataset in enumerate(datasets):
         # A shallow copy retains the strictly validated/resolved item list but
@@ -161,55 +184,75 @@ def precompute(args: argparse.Namespace) -> dict[str, int | float]:
 
         for item_index in range(len(dataset)):
             visited += 1
-            cache_path = dataset.visual_feature_cache_path(item_index)
-            sample = None
-            if cache_path.is_file() and not args.overwrite:
-                # Going through __getitem__ invokes the canonical cache reader,
-                # including all format, shape, finiteness, and alignment checks.
-                sample = dataset[item_index]
-                if "visual_patch_features" in sample:
-                    skipped += 1
-                    if visited % args.progress_every == 0 or visited == total:
-                        elapsed = time.perf_counter() - started
-                        print(
-                            f"[{visited}/{total}] valid cache; skipped "
-                            f"(written={written}, skipped={skipped}, {elapsed:.1f}s)"
-                        )
-                    continue
+            item = dataset.items[item_index]
+            try:
+                cache_path = dataset.visual_feature_cache_path(item_index)
+                sample = None
+                if cache_path.is_file() and not args.overwrite:
+                    sample = dataset[item_index]
+                    if "visual_patch_features" in sample:
+                        skipped += 1
+                        verified_items[dataset_index].append(item)
+                        if visited % args.progress_every == 0 or visited == total:
+                            elapsed = time.perf_counter() - started
+                            print(
+                                f"[{visited}/{total}] cache progress "
+                                f"(written={written}, reused={skipped}, failed={failed}, {elapsed:.1f}s)"
+                            )
+                        continue
 
-            if sample is None or "visual_patch_features" in sample:
-                sample = decode_dataset[item_index]
-            frames = sample["frames"]
-            frame_times = sample["frame_times"]
-            if frames.ndim != 4 or frames.size(0) != frame_times.numel():
-                raise ValueError(
-                    f"Decoded frame/time alignment failed for dataset {dataset_index + 1}, "
-                    f"sample {item_index}."
+                if sample is None or "visual_patch_features" in sample:
+                    sample = decode_dataset[item_index]
+                frames = sample["frames"]
+                frame_times = sample["frame_times"]
+                if frames.ndim != 4 or frames.size(0) != frame_times.numel():
+                    raise ValueError("decoded frame/time alignment failed")
+
+                with _autocast_context(device, args.amp):
+                    patch_features = model.visual_encoder.extract_patch_features(
+                        frames.unsqueeze(0).to(device)
+                    ).squeeze(0)
+                if not torch.isfinite(patch_features).all():
+                    raise ValueError("MobileCLIP produced non-finite features")
+                dataset.write_visual_feature_cache(item_index, patch_features, frame_times)
+                written += 1
+                verified_items[dataset_index].append(item)
+            except Exception as exc:
+                failed += 1
+                failures.append(
+                    {
+                        "dataset_json": str(args.dataset_json[dataset_index]),
+                        "item_index": item_index,
+                        "source_id": item.get("source_id"),
+                        "video_path": item.get("video_path"),
+                        "error": str(exc),
+                    }
                 )
-
-            with _autocast_context(device, args.amp):
-                patch_features = model.visual_encoder.extract_patch_features(
-                    frames.unsqueeze(0).to(device)
-                ).squeeze(0)
-            if not torch.isfinite(patch_features).all():
-                source_id = sample.get("source_id", item_index)
-                raise ValueError(f"MobileCLIP produced non-finite features for {source_id}.")
-            dataset.write_visual_feature_cache(item_index, patch_features, frame_times)
-            written += 1
 
             if visited % args.progress_every == 0 or visited == total:
                 elapsed = time.perf_counter() - started
                 print(
-                    f"[{visited}/{total}] cached {cache_path.name} "
-                    f"(written={written}, skipped={skipped}, {elapsed:.1f}s)"
+                    f"[{visited}/{total}] cache progress "
+                    f"(written={written}, reused={skipped}, failed={failed}, {elapsed:.1f}s)"
                 )
 
     elapsed = time.perf_counter() - started
+    if args.verified_dataset_json:
+        for destination, items in zip(args.verified_dataset_json, verified_items):
+            if not items:
+                raise ValueError(f"No cache-verified samples remain for {destination}.")
+            _write_json(destination, items)
+    if args.failure_manifest_json:
+        _write_json(
+            args.failure_manifest_json,
+            {"failed": failed, "failures": failures, "cache_verified_samples": [len(items) for items in verified_items]},
+        )
     return {
         "datasets": len(datasets),
         "samples": total,
         "written": written,
         "skipped_valid": skipped,
+        "failed": failed,
         "elapsed_seconds": elapsed,
     }
 
@@ -220,7 +263,7 @@ def main() -> None:
     print(
         "Visual feature precomputation complete: "
         f"datasets={summary['datasets']} samples={summary['samples']} "
-        f"written={summary['written']} skipped_valid={summary['skipped_valid']} "
+        f"written={summary['written']} skipped_valid={summary['skipped_valid']} failed={summary['failed']} "
         f"elapsed={summary['elapsed_seconds']:.1f}s"
     )
 

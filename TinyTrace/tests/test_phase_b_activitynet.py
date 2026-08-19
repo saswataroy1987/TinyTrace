@@ -63,6 +63,60 @@ class ActivityNetPhaseBTests(unittest.TestCase):
         self.assertEqual(items[0]["video_path"], "videos/v_keep.mp4")
         self.assertEqual(items[0]["task_mode"], "caption")
 
+    def test_convert_split_skips_invalid_videos_when_validator_rejects_them(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            videos_root = root / "videos"
+            videos_root.mkdir()
+            video_path = videos_root / "v_bad.mp4"
+            video_path.write_bytes(b"not-a-video")
+            payload = {
+                "v_bad": {
+                    "duration": 12.0,
+                    "sentences": ["bad video"],
+                    "timestamps": [[0.0, 2.0]],
+                }
+            }
+            items, summary = _convert_split(
+                payload=payload,
+                split_name="train",
+                video_index={"v_bad": video_path},
+                videos_root=videos_root,
+                max_events=6,
+                default_score=1.0,
+                media_validator=lambda _path: "unreadable video",
+            )
+
+        self.assertEqual(items, [])
+        self.assertEqual(summary["kept"], 0)
+        self.assertEqual(summary["skipped_invalid_video"], 1)
+
+    def test_convert_split_skips_malformed_annotations(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            videos_root = root / "videos"
+            videos_root.mkdir()
+            video_path = videos_root / "v_bad_annotation.mp4"
+            video_path.write_bytes(b"placeholder")
+            payload = {
+                "v_bad_annotation": {
+                    "duration": 12.0,
+                    "sentences": "not a list",
+                    "timestamps": [[0.0, 2.0]],
+                }
+            }
+            items, summary = _convert_split(
+                payload=payload,
+                split_name="train",
+                video_index={"v_bad_annotation": video_path},
+                videos_root=videos_root,
+                max_events=6,
+                default_score=1.0,
+            )
+
+        self.assertEqual(items, [])
+        self.assertEqual(summary["skipped_invalid_annotation"], 1)
+
     def test_phase_a_checkpoint_can_warm_start_phase_b_compatibly(self) -> None:
         phase_a_config = TinyTraceConfig(
             image_size=16,

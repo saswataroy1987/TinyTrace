@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -92,6 +93,23 @@ def _ensure_work_videos_link(work_root: Path, dataset_videos_root: Path) -> Path
     return link_path
 
 
+def _resume_checkpoint(output_dir: Path) -> Path | None:
+    """Return a checkpoint, or preserve an incomplete pre-checkpoint run aside."""
+    latest = output_dir / "checkpoints" / "latest.pt"
+    if latest.is_file():
+        return latest.resolve()
+    if output_dir.exists() and any(output_dir.iterdir()):
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        archived = output_dir.with_name(f"{output_dir.name}-precheckpoint-{timestamp}")
+        output_dir.rename(archived)
+        print(
+            "Archived incomplete pre-checkpoint Phase-B artifacts without deleting them: "
+            f"{archived}",
+            flush=True,
+        )
+    return None
+
+
 def _export_artifacts(
     *,
     work_root: Path,
@@ -140,7 +158,10 @@ def main() -> None:
     generated_annotations = work_root / "annotations"
     output_train_json = generated_annotations / "tinytrace_activitynet_phase_b_train.json"
     output_val_json = generated_annotations / "tinytrace_activitynet_phase_b_val.json"
+    verified_train_json = generated_annotations / "tinytrace_activitynet_phase_b_train_cache_verified.json"
+    verified_val_json = generated_annotations / "tinytrace_activitynet_phase_b_val_cache_verified.json"
     manifest_json = generated_annotations / "activitynet_phase_b_manifest.json"
+    cache_failure_manifest = generated_annotations / "activitynet_phase_b_cache_failures.json"
 
     _run(
         [
@@ -156,8 +177,10 @@ def main() -> None:
             str(output_train_json),
             "--output-val-json",
             str(output_val_json),
-            "--manifest-json",
-            str(manifest_json),
+                "--manifest-json",
+                str(manifest_json),
+                "--media-validation-workers",
+                "8",
         ]
     )
 
@@ -172,12 +195,18 @@ def main() -> None:
         (PROJECT_ROOT / "configs" / "train_activitynet_phase_b_v1_warmstart.json").read_text(encoding="utf-8")
     )
     profile["model_config"] = str(generated_model_config)
-    profile["train_dataset_json"] = str(output_train_json)
-    profile["val_dataset_json"] = str(output_val_json)
+    profile["train_dataset_json"] = str(verified_train_json)
+    profile["val_dataset_json"] = str(verified_val_json)
     profile["init_checkpoint"] = str(bootstrap_checkpoint)
     profile["output_dir"] = str(work_root / "outputs-activitynet-phase-b-v1")
     profile["frame_cache_dir"] = str(work_root / "cache" / "frames_activitynet_phase_b_v1")
     profile["visual_feature_cache_dir"] = str(work_root / "cache" / "mobileclip_activitynet_phase_b_v1")
+    output_dir = Path(profile["output_dir"])
+    resume_checkpoint = _resume_checkpoint(output_dir)
+    if resume_checkpoint is not None:
+        profile["resume"] = str(resume_checkpoint)
+        profile["init_checkpoint"] = ""
+        print(f"\nResuming Phase B from: {resume_checkpoint}", flush=True)
     generated_profile = work_root / "configs" / "train_activitynet_phase_b_v1_local.json"
     _write_json(generated_profile, profile)
     print(f"\nGenerated Phase B profile: {generated_profile}", flush=True)
@@ -196,6 +225,12 @@ def main() -> None:
                 str(output_train_json),
                 "--dataset-json",
                 str(output_val_json),
+                "--verified-dataset-json",
+                str(verified_train_json),
+                "--verified-dataset-json",
+                str(verified_val_json),
+                "--failure-manifest-json",
+                str(cache_failure_manifest),
                 "--frame-cache-dir",
                 str(work_root / "cache" / "frames_activitynet_phase_b_v1"),
                 "--visual-feature-cache-dir",
@@ -206,10 +241,6 @@ def main() -> None:
                 "50",
             ]
         )
-
-    output_dir = Path(profile["output_dir"])
-    if output_dir.exists():
-        shutil.rmtree(output_dir)
 
     _run(
         [

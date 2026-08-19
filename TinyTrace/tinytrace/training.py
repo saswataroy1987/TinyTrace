@@ -210,6 +210,7 @@ class TrainingProfile:
     monitor: str = "val_loss"
     monitor_mode: str = "min"
     dataset_size: int = 128
+    val_dataset_size: int = 0
     resume: str = ""
     save_every: int = 5
     checkpoint_keep: int = 3
@@ -250,6 +251,7 @@ class TrainingProfile:
             if not isinstance(value, int) or isinstance(value, bool) or value < 1:
                 raise ValueError(f"{name} must be a positive integer.")
         for name in (
+            "val_dataset_size",
             "save_every",
             "prediction_every",
             "metrics_every",

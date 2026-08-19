@@ -60,6 +60,8 @@ TinyTrace/**/*.log
 # These are reproducible from the tracked code/configuration and may be large.
 phase_b_*_run/
 phase_b_*_run-*/
+# Explicit Stage 0/V2 work root. All contents are reproducible local artifacts.
+phase_b_activitynet_v2_run/
 **/cache/
 **/.cache/
 **/checkpoints/

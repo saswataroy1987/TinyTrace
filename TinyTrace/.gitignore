@@ -30,6 +30,7 @@ checkpoints/
 # Training, evaluation, and experiment outputs
 outputs/
 outputs-*/
+phase_b_activitynet_v2_run/
 runs/
 logs/
 wandb/

@@ -1,0 +1,30 @@
+{
+  "created_at_utc": "2026-08-20T06:42:35.407254+00:00",
+  "git_revision": "18df11e21e8ea2f55ba794ee581927de0a9f2f2f",
+  "inputs": {
+    "cache_mapping": {
+      "path": "/home/saswata/Desktop/Event_detection/TinyTrace/phase_b_activitynet_v2_run/cache_mapping/activitynet_v1_mobileclip_cache_map.json",
+      "sha256": "03099ee39ec25aae8146384db68d2aef0004f0eb55ad83e83fe603c972b0634f"
+    },
+    "cache_root": "/home/saswata/Desktop/Event_detection/TinyTrace/phase_b_activitynet_v1_run/cache/mobileclip_activitynet_phase_b_v1",
+    "train_annotations": {
+      "path": "/home/saswata/Desktop/Event_detection/TinyTrace/Activity_net_dataset/train.json",
+      "sha256": "704536b2779011c1a729c927ae30e39ea9c90c38557836bbe969499917243d69"
+    },
+    "val_annotations": {
+      "path": "/home/saswata/Desktop/Event_detection/TinyTrace/Activity_net_dataset/val_1.json",
+      "sha256": "466aaccb9ebe45c6db4c98488a4ddbeb5b22faffe62e1bbce81222c14fc29e1c"
+    }
+  },
+  "manifest_sha256": "99f4d19a54490d447ca20e990386f4956fe01e80c280ae787af9d0e2c245496e",
+  "package_versions": {
+    "numpy": "2.1.3",
+    "pytest": "8.3.5",
+    "torch": "2.9.1+cu128",
+    "torchvision": "0.24.1"
+  },
+  "platform": "Linux-6.8.0-136-generic-x86_64-with-glibc2.35",
+  "python": "3.13.5 | packaged by Anaconda, Inc. | (main, Jun 12 2025, 16:09:02) [GCC 11.2.0]",
+  "schema_version": "tinytrace.phase-b-v2.reproducibility.v1",
+  "seed": 7
+}

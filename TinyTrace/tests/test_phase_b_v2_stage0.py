@@ -156,6 +156,14 @@ class PhaseBV2Stage0Tests(unittest.TestCase):
         self.assertEqual(batch["frame_mask"].tolist(), [[True, True, True], [True, True, False]])
         self.assertEqual(batch["event_mask"].sum(dim=1).tolist(), [7, 1])
 
+    def test_resolved_config_round_trips_into_dataset_contract(self) -> None:
+        config = self.write_inputs()
+        self.prepare(config)
+
+        restored = Stage0Config.from_json(self.output_root / "configs" / "resolved_config.json")
+
+        self.assertEqual(restored, config)
+
     def test_non_finite_cache_is_rejected_with_machine_reason(self) -> None:
         path = self.write_cache("bad", frames=2, duration=4.0, invalid_value=float("nan"))
         with self.assertRaises(CacheValidationError) as raised:

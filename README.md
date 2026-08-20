@@ -11,14 +11,130 @@ follow this master README.
 Phase 1 / MobileCLIP feature extraction: COMPLETE
 ActivityNet MobileCLIP cache: ALREADY GENERATED ON ANOTHER PC
 V1: PRESERVED BASELINE
-V2 implementation: NOT YET COMPLETE
-Stage 0: NEXT
-Full training: NOT YET STARTED
-Training will occur on a separate GPU PC
+V2 implementation: STAGES 1-4 TRAINING/EVALUATION PATH IMPLEMENTED
+Stage 0: COMPLETE (validated read-only manifest)
+Stage 1: COMPLETE (20 epochs; best-temporal.pt selected at epoch 17)
+Stage 2: INITIAL RUN COMPLETE, QUALITY GATE NOT PASSED (grounded retry pending)
+Stage 3: BLOCKED until Stage 2 captions are visually grounded
+Stage 4: PENDING (final evaluation and chronological JSON export)
 ```
 
 The existing cache is a read-only input. Stage 0 must map and validate it before
 training. Do not regenerate it as part of v2.
+
+### Current Run Artifacts
+
+```text
+Stage 0 manifest: phase_b_activitynet_v2_run/manifests/activitynet_v2_manifest.json
+Stage 1 selected checkpoint: phase_b_activitynet_v2_run/stage1/checkpoints/best-temporal.pt
+Stage 2 progress: phase_b_activitynet_v2_run/stage2/history.json
+Stage 2 selected checkpoint so far: phase_b_activitynet_v2_run/stage2/checkpoints/best-caption.pt
+Stage 2 latest/resume checkpoint: phase_b_activitynet_v2_run/stage2/checkpoints/latest.pt
+```
+
+Stage 2 evaluates captions on ground-truth event segments; Stage 3 is the first
+training stage that connects the detector's predicted segments to caption
+generation. Do not start Stage 3 until qualitative Stage 2 comparisons show
+that the captions describe their corresponding events.
+
+### Completed Work and Next Actions
+
+Completed and verified:
+
+1. Stage 0 created an immutable validated ActivityNet manifest from the
+   existing read-only MobileCLIP cache. It retained 6,962 train videos and
+   3,448 validation videos.
+2. Stage 1 completed 20 epochs of temporal event-localization training. Its
+   selected `best-temporal.pt` checkpoint is from epoch 17, with validation F1
+   `0.4211` and mean IoU `0.7078`. It detects candidate event time ranges, but
+   its confidence threshold and overlap filtering still need final validation
+   tuning because it predicts too many candidate events.
+3. Stage 2 completed 20 epochs using ground-truth event windows and the frozen
+   Stage 1 representation. Validation loss improved from `3.1822` to `2.6172`.
+   The selected `best-caption.pt` is epoch 4 by the declared BLEU-1 selection
+   rule (`0.2571`); epoch 19 has the best METEOR-like (`0.2339`) and
+   CIDEr-like (`0.1285`) proxy scores. However, the 32 exported qualitative
+   comparisons show fluent but mostly generic or incorrect captions. This run
+   fails the visual-grounding quality gate, despite the lightweight proxy
+   metrics, and must not initialize Stage 3.
+
+Do this next, in order:
+
+1. Inspect generated captions against the ActivityNet ground truth. This is an
+   evaluation-only command: it does not train or modify any checkpoint. It
+   writes each validation event's timestamp, `reference_caption`, and
+   `generated_caption` to `stage2/caption_comparisons.json`.
+
+   ```bash
+   PYTHONPATH=TinyTrace python TinyTrace/scripts/inspect_phase_b_v2_captions.py \
+     --model-config TinyTrace/configs/tinytrace_activitynet_phase_b_v2.json \
+     --stage0-config phase_b_activitynet_v2_run/configs/resolved_config.json \
+     --manifest phase_b_activitynet_v2_run/manifests/activitynet_v2_manifest.json \
+     --cache-root phase_b_activitynet_v1_run/cache/mobileclip_activitynet_phase_b_v1 \
+     --checkpoint phase_b_activitynet_v2_run/stage2/checkpoints/best-caption.pt \
+     --output phase_b_activitynet_v2_run/stage2/caption_comparisons.json \
+     --device cuda --batch-size 2 --limit 32
+   ```
+
+2. Run the grounded Stage 2 retry. It preserves multiple ordered temporal
+   visual tokens within every event, instead of repeating one event-average
+   token, and fine-tunes the final two FLAN-T5 encoder blocks plus the final
+   decoder block. It starts from the Stage 1 detector and writes new artifacts
+   without overwriting the initial Stage 2 run.
+
+   ```bash
+   PYTHONPATH=TinyTrace python TinyTrace/scripts/train_phase_b_v2.py \
+     --stage caption \
+     --model-config TinyTrace/configs/tinytrace_activitynet_phase_b_v2.json \
+     --stage0-config phase_b_activitynet_v2_run/configs/resolved_config.json \
+     --manifest phase_b_activitynet_v2_run/manifests/activitynet_v2_manifest.json \
+     --cache-root phase_b_activitynet_v1_run/cache/mobileclip_activitynet_phase_b_v1 \
+     --output-root phase_b_activitynet_v2_run/stage2_grounded \
+     --stage1-checkpoint phase_b_activitynet_v2_run/stage1/checkpoints/best-temporal.pt \
+     --device cuda --epochs 20 --batch-size 2 --learning-rate 5e-5 \
+     --generation-limit 64 --log-every-videos 50
+   ```
+
+3. Inspect `stage2_grounded/checkpoints/best-caption.pt` with the same
+   inspection command, changing both `--checkpoint` and `--output` to the
+   `stage2_grounded` paths. Start Stage 3 only when the generated captions are
+   recognizably grounded in their corresponding reference events.
+
+4. Once the grounded retry passes review, start Stage 3. It jointly
+   fine-tunes localization and captioning, using the Stage 1 and Stage 2
+   selected checkpoints as its initialization. Its output is the first model
+   that can turn cached video features into its own predicted timestamps and
+   captions.
+
+   ```bash
+   PYTHONPATH=TinyTrace python TinyTrace/scripts/train_phase_b_v2.py \
+     --stage joint \
+     --model-config TinyTrace/configs/tinytrace_activitynet_phase_b_v2.json \
+     --stage0-config phase_b_activitynet_v2_run/configs/resolved_config.json \
+     --manifest phase_b_activitynet_v2_run/manifests/activitynet_v2_manifest.json \
+     --cache-root phase_b_activitynet_v1_run/cache/mobileclip_activitynet_phase_b_v1 \
+     --output-root phase_b_activitynet_v2_run/stage3 \
+     --stage1-checkpoint phase_b_activitynet_v2_run/stage1/checkpoints/best-temporal.pt \
+     --stage2-checkpoint phase_b_activitynet_v2_run/stage2_grounded/checkpoints/best-caption.pt \
+     --device cuda --epochs 10 --batch-size 2 --learning-rate 5e-5 \
+     --threshold 0.4 --overlap-threshold 0.7
+   ```
+
+5. After Stage 3, use `stage3/checkpoints/best-combined.pt` for Stage 4 final
+   evaluation. Stage 4 exports chronological JSON predictions with timestamp,
+   confidence, and caption for every retained validation video. Do not run this
+   final evaluation concurrently with training on the same GPU.
+
+   ```bash
+   PYTHONPATH=TinyTrace python TinyTrace/scripts/eval_phase_b_v2.py \
+     --model-config TinyTrace/configs/tinytrace_activitynet_phase_b_v2.json \
+     --stage0-config phase_b_activitynet_v2_run/configs/resolved_config.json \
+     --manifest phase_b_activitynet_v2_run/manifests/activitynet_v2_manifest.json \
+     --cache-root phase_b_activitynet_v1_run/cache/mobileclip_activitynet_phase_b_v1 \
+     --checkpoint phase_b_activitynet_v2_run/stage3/checkpoints/best-combined.pt \
+     --output phase_b_activitynet_v2_run/stage4/validation_predictions.json \
+     --device cuda --batch-size 2 --threshold 0.4 --overlap-threshold 0.7
+   ```
 
 ## 1. Project Overview
 
@@ -1185,15 +1301,21 @@ latency, memory, and quality-regression benchmarks
 
 ## WHAT WE DO NEXT
 
-The immediate implementation task is:
+The current implementation handoff is:
 
 ```text
-Stage 0:
-V2 ActivityNet manifest + dataset loader + validation
-using the existing MobileCLIP cache read-only.
+Stage 1: localization training → best-temporal.pt
+    ↓
+Stage 2: FLAN-T5 Small captioning with ground-truth segments → best-caption.pt
+    ↓
+Stage 3: joint detector/captioner training → best-combined.pt
+    ↓
+Stage 4: fixed-protocol validation and chronological JSON export
 ```
 
-Do not regenerate MobileCLIP features and do not start training. First transfer
-or mount the cache, recover its mapping, validate real entries, build the
-immutable manifest, and pass the Stage 0 gate. Then move the prepared project
-and validated inputs to the GPU PC for Stage 1 localization training.
+Do not regenerate MobileCLIP features. The Stage 0 cache mapping, manifest, and
+validation reports are already prepared under `phase_b_activitynet_v2_run/`.
+On the GPU PC, install the pinned requirements, make a local FLAN-T5 Small
+snapshot available, run `TinyTrace/scripts/train_phase_b_v2.py` for Stage 1,
+then complete Stages 2 and 3 with their selected checkpoints before running
+`TinyTrace/scripts/eval_phase_b_v2.py`.

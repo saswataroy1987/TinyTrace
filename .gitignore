@@ -85,8 +85,7 @@ lightning_logs/
 # training; resume and failed-experiment checkpoints stay local.
 !phase_b_activitynet_v2_run/
 !phase_b_activitynet_v2_run/**
-phase_b_activitynet_v2_run/**/checkpoints/
-!phase_b_activitynet_v2_run/stage1/checkpoints/
+phase_b_activitynet_v2_run/**/checkpoints/*
 !phase_b_activitynet_v2_run/stage1/checkpoints/best-temporal.pt
 
 # OS files

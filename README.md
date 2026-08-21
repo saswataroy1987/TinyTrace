@@ -14,7 +14,8 @@ V1: PRESERVED BASELINE
 V2 implementation: STAGES 1-4 TRAINING/EVALUATION PATH IMPLEMENTED
 Stage 0: COMPLETE (validated read-only manifest)
 Stage 1: COMPLETE (20 epochs; best-temporal.pt selected at epoch 17)
-Stage 2: INITIAL RUN COMPLETE, QUALITY GATE NOT PASSED (grounded retry pending)
+Stage 2: INITIAL AND GROUNDED RETRY COMPLETE, QUALITY GATE NOT PASSED
+Stage 2 v3 direct-MobileCLIP visual-grounding experiment: IMPLEMENTED, SANITY CHECK PASSED, READY FOR GPU TRAINING
 Stage 3: BLOCKED until Stage 2 captions are visually grounded
 Stage 4: PENDING (final evaluation and chronological JSON export)
 ```
@@ -49,14 +50,20 @@ Completed and verified:
    `0.4211` and mean IoU `0.7078`. It detects candidate event time ranges, but
    its confidence threshold and overlap filtering still need final validation
    tuning because it predicts too many candidate events.
-3. Stage 2 completed 20 epochs using ground-truth event windows and the frozen
+3. The initial Stage 2 run completed 20 epochs using ground-truth event windows and the frozen
    Stage 1 representation. Validation loss improved from `3.1822` to `2.6172`.
    The selected `best-caption.pt` is epoch 4 by the declared BLEU-1 selection
    rule (`0.2571`); epoch 19 has the best METEOR-like (`0.2339`) and
    CIDEr-like (`0.1285`) proxy scores. However, the 32 exported qualitative
    comparisons show fluent but mostly generic or incorrect captions. This run
    fails the visual-grounding quality gate, despite the lightweight proxy
-   metrics, and must not initialize Stage 3.
+   metrics, and must not initialize Stage 3. The grounded retry preserved
+   ordered temporal tokens and trained more FLAN-T5 layers. It increased output
+   diversity (51 unique captions in 64 samples versus 18 in 32 initial samples)
+   and slightly improved best METEOR-like/CIDEr-like proxies (`0.2368`/`0.1325`
+   versus `0.2339`/`0.1285`), but its best BLEU-1 and loss were worse
+   (`0.2403`/`2.6614` versus `0.2571`/`2.6172`) and its captions still mostly
+   described the wrong activity. It also fails the quality gate.
 
 Do this next, in order:
 
@@ -76,31 +83,53 @@ Do this next, in order:
      --device cuda --batch-size 2 --limit 32
    ```
 
-2. Run the grounded Stage 2 retry. It preserves multiple ordered temporal
-   visual tokens within every event, instead of repeating one event-average
-   token, and fine-tunes the final two FLAN-T5 encoder blocks plus the final
-   decoder block. It starts from the Stage 1 detector and writes new artifacts
-   without overwriting the initial Stage 2 run.
+2. Do not train more epochs of either failed Stage 2 variant. First audit a
+   representative set of ActivityNet videos, cache mappings, sampled frame
+   times, event windows, and captions together. This rules out a cache/video or
+   annotation-timeline mismatch before changing the language model again.
+
+3. Stage 2 v3 is now implemented as a separate direct-MobileCLIP experiment.
+   It selects up to eight ordered frames from each ground-truth event and keeps
+   all `64 x 1024` cached patch tokens per selected frame. A caption-specific
+   cross-attention resampler produces 16 FLAN-T5-compatible visual tokens;
+   FLAN receives them before the fixed instruction, `Describe the event shown
+   in the video.` The original MobileCLIP cache remains frozen/read-only.
+   Stage 1 context is optional and disabled in the default configuration, so
+   it can never become the sole visual representation. The 10-video CPU sanity
+   test passed, including frame selection, token shapes, and FLAN conditioning.
+
+   Run the following on the GPU machine to start the isolated 20-epoch v3
+   caption experiment. It does not train MobileCLIP, modify either previous
+   Stage 2 run, or start Stage 3. It writes evaluation captions for the same
+   forensic videos every two epochs, with real and deterministically shuffled
+   event features side by side.
 
    ```bash
-   PYTHONPATH=TinyTrace python TinyTrace/scripts/train_phase_b_v2.py \
-     --stage caption \
-     --model-config TinyTrace/configs/tinytrace_activitynet_phase_b_v2.json \
+   PYTHONPATH=TinyTrace python TinyTrace/scripts/train_phase_b_v3_direct_mobileclip.py \
+     --model-config TinyTrace/configs/tinytrace_activitynet_phase_b_v3_direct_mobileclip.json \
      --stage0-config phase_b_activitynet_v2_run/configs/resolved_config.json \
      --manifest phase_b_activitynet_v2_run/manifests/activitynet_v2_manifest.json \
      --cache-root phase_b_activitynet_v1_run/cache/mobileclip_activitynet_phase_b_v1 \
-     --output-root phase_b_activitynet_v2_run/stage2_grounded \
-     --stage1-checkpoint phase_b_activitynet_v2_run/stage1/checkpoints/best-temporal.pt \
-     --device cuda --epochs 20 --batch-size 2 --learning-rate 5e-5 \
-     --generation-limit 64 --log-every-videos 50
+     --audit-root stage2_audit \
+     --output-root phase_b_activitynet_v2_run/stage2_v3_direct_mobileclip \
+     --device cuda --epochs 20 --batch-size 2 \
+     --adapter-learning-rate 1e-4 --flan-learning-rate 2e-5 \
+     --audit-every 2 --generation-limit 64 --log-every-videos 50
    ```
 
-3. Inspect `stage2_grounded/checkpoints/best-caption.pt` with the same
-   inspection command, changing both `--checkpoint` and `--output` to the
-   `stage2_grounded` paths. Start Stage 3 only when the generated captions are
-   recognizably grounded in their corresponding reference events.
+   Pre-training sanity result:
+   `phase_b_activitynet_v2_run/stage2_v3_direct_mobileclip/sanity/forward_pass.json`.
+   During training, audit comparisons are written to
+   `phase_b_activitynet_v2_run/stage2_v3_direct_mobileclip/audit/epoch-XXXX/`.
+   The qualitative gate remains mandatory: real captions must visibly describe
+   the corresponding drums, tires, vacuum, sand, gym, and other audit events,
+   while shuffled captions must differ materially. Do not start Stage 3 unless
+   this qualitative evidence and the objective metrics improve together.
 
-4. Once the grounded retry passes review, start Stage 3. It jointly
+4. Inspect the new variant's caption comparisons. Start Stage 3 only when the
+   generated captions are recognizably grounded in their corresponding events.
+
+5. Once a Stage 2 variant passes review, start Stage 3. It jointly
    fine-tunes localization and captioning, using the Stage 1 and Stage 2
    selected checkpoints as its initialization. Its output is the first model
    that can turn cached video features into its own predicted timestamps and
@@ -120,7 +149,7 @@ Do this next, in order:
      --threshold 0.4 --overlap-threshold 0.7
    ```
 
-5. After Stage 3, use `stage3/checkpoints/best-combined.pt` for Stage 4 final
+6. After Stage 3, use `stage3/checkpoints/best-combined.pt` for Stage 4 final
    evaluation. Stage 4 exports chronological JSON predictions with timestamp,
    confidence, and caption for every retained validation video. Do not run this
    final evaluation concurrently with training on the same GPU.

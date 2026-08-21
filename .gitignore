@@ -88,6 +88,18 @@ lightning_logs/
 phase_b_activitynet_v2_run/**/checkpoints/*
 !phase_b_activitynet_v2_run/stage1/checkpoints/best-temporal.pt
 
+# Stage 2 captioning experiments are diagnostic/training outputs. Keep their
+# implementation and configuration under TinyTrace/, but do not publish their
+# checkpoints, logs, generated captions, or copied evaluation artifacts.
+phase_b_activitynet_v2_run/stage2/
+phase_b_activitynet_v2_run/stage2_grounded/
+phase_b_activitynet_v2_run/stage2_v3_direct_mobileclip/
+stage2_bridge_ablation/
+stage2_final_causal/
+
+# Self-contained manual audit packages copy source videos for human review.
+stage2_audit/
+
 # OS files
 .DS_Store
 Thumbs.db
